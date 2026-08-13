@@ -4670,34 +4670,63 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             }
         }
 
-        function loadAllUserData() {
-            // 加载赚钱模块数据（兼容旧版 businessQuizData 键）
-            const moneySaved = localStorage.getItem('quizData_money');
-            if (moneySaved) {
+        function loadModuleData(key, oldKey) {
+            // 尝试从主存储读取
+            let saved = localStorage.getItem(`quizData_${key}`);
+            // 如果主存储为空，尝试备份
+            if (!saved) {
+                saved = localStorage.getItem(`quizData_${key}_bak`);
+            }
+            // 兼容旧版键名
+            if (!saved && oldKey) {
+                saved = localStorage.getItem(oldKey);
+            }
+            if (saved) {
                 try {
-                    allUserData.money = { ...createEmptyUserData(), ...JSON.parse(moneySaved) };
-                } catch(e) { console.error(e); }
-            } else {
-                // 尝试迁移旧版数据
-                const oldSaved = localStorage.getItem('businessQuizData');
-                if (oldSaved) {
-                    try {
-                        allUserData.money = { ...createEmptyUserData(), ...JSON.parse(oldSaved) };
-                    } catch(e) { console.error(e); }
+                    const parsed = JSON.parse(saved);
+                    allUserData[key] = { ...createEmptyUserData(), ...parsed };
+                    // 确保 answered 是对象
+                    if (!allUserData[key].answered || typeof allUserData[key].answered !== 'object') {
+                        allUserData[key].answered = {};
+                    }
+                    return true;
+                } catch(e) {
+                    console.error(`Failed to parse ${key} data:`, e);
                 }
             }
-            // 加载护钱模块数据
-            const protectSaved = localStorage.getItem('quizData_protect');
-            if (protectSaved) {
-                try {
-                    allUserData.protect = { ...createEmptyUserData(), ...JSON.parse(protectSaved) };
-                } catch(e) { console.error(e); }
-            }
+            return false;
+        }
+
+        function loadAllUserData() {
+            // 赚钱模块（兼容旧版 businessQuizData 键）
+            loadModuleData('money', 'businessQuizData');
+            // 护钱模块
+            loadModuleData('protect', null);
         }
 
         function saveUserData() {
             if (state.currentModule) {
-                localStorage.setItem(`quizData_${state.currentModule}`, JSON.stringify(allUserData[state.currentModule]));
+                try {
+                    const data = JSON.stringify(allUserData[state.currentModule]);
+                    localStorage.setItem(`quizData_${state.currentModule}`, data);
+                    // 备份写入，防止部分浏览器刷新时清空主存储
+                    localStorage.setItem(`quizData_${state.currentModule}_bak`, data);
+                } catch(e) {
+                    console.error('saveUserData failed:', e);
+                }
+            }
+        }
+
+        // 保存所有模块数据（用于页面退出/隐藏时兜底）
+        function saveAllUserData() {
+            try {
+                ['money', 'protect'].forEach(key => {
+                    const data = JSON.stringify(allUserData[key]);
+                    localStorage.setItem(`quizData_${key}`, data);
+                    localStorage.setItem(`quizData_${key}_bak`, data);
+                });
+            } catch(e) {
+                console.error('saveAllUserData failed:', e);
             }
         }
 
@@ -4761,13 +4790,9 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
         }
 
         function confirmExit() {
-            if (state.answered && state.currentIndex < state.quizQuestions.length - 1) {
-                if (confirm('确定要退出答题吗？当前进度不会保存。')) {
-                    showPage('page-home');
-                }
-            } else {
-                showPage('page-home');
-            }
+            // 静默保存当前进度，直接返回，不弹任何确认框
+            saveAllUserData();
+            showPage('page-home');
         }
 
         // ========== 模块选择页统计 ==========
@@ -5397,6 +5422,22 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             if (e.target.id === 'modal-question') {
                 closeModal();
             }
+        });
+
+        // ========== 页面退出/隐藏时自动保存（兜底机制） ==========
+        // 使用 pagehide 替代 beforeunload，兼容移动端浏览器
+        window.addEventListener('pagehide', function() {
+            saveAllUserData();
+        });
+        // visibilitychange：App切到后台、锁屏、下拉刷新前都会触发
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                saveAllUserData();
+            }
+        });
+        // 移动端下拉刷新前也保存一次
+        window.addEventListener('beforeunload', function() {
+            saveAllUserData();
         });
 
         // ========== 启动 ==========
