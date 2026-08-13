@@ -1,0 +1,56 @@
+{
+    "name": "赚钱与护钱 - 商业与法律知识答题",
+    "short_name": "赚钱与护钱",
+    "description": "每天5分钟，提升财商与法商。商业知识答题（赚钱）+ 法律知识答题（护钱），共404道精选题目。",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#F8FAFC",
+    "theme_color": "#B8860B",
+    "lang": "zh-CN",
+    "dir": "ltr",
+    "categories": ["education", "productivity"],
+    "icons": [
+        {
+            "src": "icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "赚钱答题",
+            "short_name": "赚钱",
+            "description": "开始商业知识答题",
+            "url": "./index.html?module=money",
+            "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "护钱答题",
+            "short_name": "护钱",
+            "description": "开始法律知识答题",
+            "url": "./index.html?module=protect",
+            "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+        }
+    ]
+}
