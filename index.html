@@ -5425,104 +5425,15 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
 
     <!-- 安装引导弹窗 -->
     <div id="install-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onclick="if(event.target===this)closeInstallModal()">
-        <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[85vh] overflow-y-auto">
-            <div class="sticky top-0 bg-white rounded-t-3xl px-6 pt-5 pb-3 flex items-center justify-between border-b border-gray-100">
+        <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white rounded-t-3xl px-6 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 z-10">
                 <h3 class="text-lg font-bold text-gray-900">安装到桌面</h3>
                 <button onclick="closeInstallModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
-            <div class="px-6 py-5 space-y-5">
-
-                <!-- Chrome / Edge (支持原生安装) -->
-                <div id="install-native" class="hidden">
-                    <button onclick="triggerNativeInstall()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-700 text-white rounded-xl font-medium text-base btn-tap active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
-                        <i class="fa fa-download"></i>
-                        一键安装
-                    </button>
-                    <p class="text-xs text-gray-400 text-center mt-2">点击后浏览器会弹出安装确认</p>
-                </div>
-
-                <!-- 华为浏览器 -->
-                <div id="guide-huawei" class="hidden bg-gray-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-lg">📱</span>
-                        <h4 class="font-bold text-gray-800">华为浏览器</h4>
-                    </div>
-                    <ol class="text-sm text-gray-600 space-y-2 pl-1">
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">1.</span>点击底部工具栏中间的 <strong>菜单按钮</strong>（三条横线/四个方块图标）</li>
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">2.</span>在弹出菜单中找到 <strong>「添加至」</strong> 或 <strong>「添加到桌面」</strong></li>
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">3.</span>选择 <strong>「桌面快捷方式」</strong> 或 <strong>「添加到主屏幕」</strong></li>
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">4.</span>点击确认，桌面即出现App图标</li>
-                    </ol>
-                </div>
-
-                <!-- 夸克浏览器 -->
-                <div id="guide-quark" class="hidden bg-gray-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-lg">🌐</span>
-                        <h4 class="font-bold text-gray-800">夸克浏览器</h4>
-                    </div>
-                    <ol class="text-sm text-gray-600 space-y-2 pl-1">
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">1.</span>点击底部工具栏的 <strong>「三」</strong> 菜单按钮</li>
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">2.</span>在菜单中找到 <strong>「添加到桌面」</strong> 或 <strong>「收藏到桌面」</strong></li>
-                        <li class="flex gap-2"><span class="text-amber-600 font-bold">3.</span>点击确认即可</li>
-                    </ol>
-                </div>
-
-                <!-- 微信内置浏览器 -->
-                <div id="guide-wechat" class="hidden bg-red-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-lg">💬</span>
-                        <h4 class="font-bold text-gray-800">微信内打开</h4>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-2">微信内置浏览器不支持添加桌面，请：</p>
-                    <ol class="text-sm text-gray-600 space-y-2 pl-1">
-                        <li class="flex gap-2"><span class="text-red-500 font-bold">1.</span>点击右上角 <strong>「···」</strong></li>
-                        <li class="flex gap-2"><span class="text-red-500 font-bold">2.</span>选择 <strong>「在浏览器打开」</strong></li>
-                        <li class="flex gap-2"><span class="text-red-500 font-bold">3.</span>在浏览器中按上述步骤添加到桌面</li>
-                    </ol>
-                </div>
-
-                <!-- iPhone Safari -->
-                <div id="guide-ios" class="hidden bg-gray-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-lg">🍎</span>
-                        <h4 class="font-bold text-gray-800">iPhone / Safari</h4>
-                    </div>
-                    <ol class="text-sm text-gray-600 space-y-2 pl-1">
-                        <li class="flex gap-2"><span class="text-blue-500 font-bold">1.</span>点击Safari底部的 <strong>分享按钮</strong>（方框+向上箭头图标）</li>
-                        <li class="flex gap-2"><span class="text-blue-500 font-bold">2.</span>向下滑动找到 <strong>「添加到主屏幕」</strong></li>
-                        <li class="flex gap-2"><span class="text-blue-500 font-bold">3.</span>点击右上角 <strong>「添加」</strong></li>
-                    </ol>
-                </div>
-
-                <!-- 通用Android浏览器 -->
-                <div id="guide-generic" class="hidden bg-gray-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-lg">🤖</span>
-                        <h4 class="font-bold text-gray-800">其他浏览器</h4>
-                    </div>
-                    <ol class="text-sm text-gray-600 space-y-2 pl-1">
-                        <li class="flex gap-2"><span class="text-gray-500 font-bold">1.</span>点击浏览器的 <strong>菜单按钮</strong>（通常在底部或右上角）</li>
-                        <li class="flex gap-2"><span class="text-gray-500 font-bold">2.</span>找到 <strong>「添加到桌面」</strong>、<strong>「添加到主屏幕」</strong> 或 <strong>「创建快捷方式」</strong></li>
-                        <li class="flex gap-2"><span class="text-gray-500 font-bold">3.</span>确认添加即可</li>
-                    </ol>
-                </div>
-
-                <!-- Chrome Android 提示 -->
-                <div id="guide-chrome-android" class="hidden bg-green-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-lg">✅</span>
-                        <h4 class="font-bold text-gray-800">Chrome 浏览器</h4>
-                    </div>
-                    <p class="text-sm text-gray-600">Chrome支持一键安装，请点击上方「一键安装」按钮。如果没有出现，也可通过菜单中的「添加到主屏幕」操作。</p>
-                </div>
-
-                <div class="bg-amber-50 rounded-xl p-3 flex gap-2">
-                    <i class="fa fa-info-circle text-amber-500 mt-0.5"></i>
-                    <p class="text-xs text-amber-700">安装后桌面会出现独立图标，打开即全屏体验，无浏览器地址栏，支持离线答题。</p>
-                </div>
+            <div class="px-6 py-5" id="install-modal-content">
+                <!-- 内容由JS动态填充 -->
             </div>
         </div>
     </div>
@@ -5571,80 +5482,184 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
                           document.referrer.includes('android-app://');
 
         // 如果已经安装为PWA，不显示安装按钮
-        if (isStandalone) {
-            // 已安装模式，不显示安装按钮
-        } else {
-            // 延迟显示安装按钮，避免首屏干扰
+        if (!isStandalone) {
             setTimeout(() => {
-                document.getElementById('install-btn-container').classList.remove('hidden');
+                var c = document.getElementById('install-btn-container');
+                if (c) c.classList.remove('hidden');
             }, 1500);
         }
 
         // Chrome/Edge 原生安装提示
-        window.addEventListener('beforeinstallprompt', (e) => {
+        window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
-            // 显示安装按钮（如果还没显示）
-            const container = document.getElementById('install-btn-container');
-            if (container) container.classList.remove('hidden');
+            var c = document.getElementById('install-btn-container');
+            if (c) c.classList.remove('hidden');
         });
 
-        // 安装成功后隐藏按钮
-        window.addEventListener('appinstalled', () => {
+        window.addEventListener('appinstalled', function() {
             deferredPrompt = null;
-            const container = document.getElementById('install-btn-container');
-            if (container) container.classList.add('hidden');
+            var c = document.getElementById('install-btn-container');
+            if (c) c.classList.add('hidden');
         });
 
-        // 检测浏览器类型
+        // 检测浏览器
         function detectBrowser() {
-            const ua = navigator.userAgent.toLowerCase();
-            if (ua.includes('micromessenger')) return 'wechat';
-            if (ua.includes('huaweibrowser') || ua.includes('honorbrowser')) return 'huawei';
-            if (ua.includes('quark')) return 'quark';
-            if (ua.includes('ucbrowser') || ua.includes('ubrowser')) return 'uc';
-            if (/iphone|ipad|ipod/.test(ua)) return 'ios';
-            if (ua.includes('chrome') && !ua.includes('huaweibrowser') && !ua.includes('quark') && !ua.includes('ucbrowser')) return 'chrome';
-            if (ua.includes('edg')) return 'edge';
-            if (ua.includes('firefox')) return 'firefox';
-            return 'generic';
+            var ua = navigator.userAgent || '';
+            var u = ua.toLowerCase();
+            if (u.indexOf('micromessenger') >= 0) return {id:'wechat', name:'微信浏览器'};
+            if (u.indexOf('huaweibrowser') >= 0 || u.indexOf('honorbrowser') >= 0) return {id:'huawei', name:'华为浏览器'};
+            if (u.indexOf('quark') >= 0) return {id:'quark', name:'夸克浏览器'};
+            if (u.indexOf('ucbrowser') >= 0 || u.indexOf('ubrowser') >= 0) return {id:'uc', name:'UC浏览器'};
+            if (u.indexOf('miuibrowser') >= 0 || u.indexOf('mipay') >= 0) return {id:'mi', name:'小米浏览器'};
+            if (u.indexOf('oppobrowser') >= 0) return {id:'oppo', name:'OPPO浏览器'};
+            if (u.indexOf('vivobrowser') >= 0) return {id:'vivo', name:'vivo浏览器'};
+            if (u.indexOf('samsungbrowser') >= 0) return {id:'samsung', name:'三星浏览器'};
+            if (/iphone|ipad|ipod/.test(u)) return {id:'ios', name:'iPhone Safari'};
+            if (u.indexOf('edg') >= 0) return {id:'edge', name:'Edge浏览器'};
+            if (u.indexOf('chrome') >= 0) return {id:'chrome', name:'Chrome浏览器'};
+            if (u.indexOf('firefox') >= 0) return {id:'firefox', name:'Firefox浏览器'};
+            if (u.indexOf('safari') >= 0) return {id:'safari', name:'Safari浏览器'};
+            return {id:'generic', name:'当前浏览器'};
+        }
+
+        // 获取浏览器对应的引导步骤
+        function getGuideSteps(browserId) {
+            var guides = {
+                huawei: [
+                    '点击屏幕底部工具栏中间的 <b>菜单按钮</b>（四个小方块/三横线图标）',
+                    '在弹出的菜单中找到 <b>「添加至」</b> 或 <b>「添加到桌面」</b>',
+                    '选择 <b>「桌面快捷方式」</b>',
+                    '点击 <b>「添加」</b> 确认'
+                ],
+                quark: [
+                    '点击底部工具栏的 <b>「三」</b> 菜单按钮（右下角）',
+                    '在菜单中找到 <b>「添加到桌面」</b> 或 <b>「收藏到桌面」</b>',
+                    '点击确认即可'
+                ],
+                uc: [
+                    '点击底部菜单按钮（三条横线）',
+                    '选择 <b>「收藏/历史」</b> -> <b>「添加到」</b>',
+                    '选择 <b>「手机桌面」</b>',
+                    '确认添加'
+                ],
+                mi: [
+                    '点击底部菜单按钮',
+                    '选择 <b>「工具箱」</b> -> <b>「添加到桌面」</b>',
+                    '确认添加'
+                ],
+                oppo: [
+                    '点击底部菜单按钮',
+                    '选择 <b>「添加到桌面」</b> 或 <b>「收藏至桌面」</b>',
+                    '确认添加'
+                ],
+                vivo: [
+                    '点击底部菜单按钮',
+                    '选择 <b>「添加到桌面」</b>',
+                    '确认添加'
+                ],
+                samsung: [
+                    '点击右上角菜单按钮',
+                    '选择 <b>「添加页面到」</b> -> <b>「主屏幕」</b>',
+                    '点击添加'
+                ],
+                wechat: [
+                    '微信内置浏览器不支持直接添加桌面',
+                    '点击右上角 <b>「···」</b>',
+                    '选择 <b>「在浏览器打开」</b>',
+                    '然后在浏览器中按对应步骤添加到桌面'
+                ],
+                ios: [
+                    '点击Safari底部的 <b>分享按钮</b>（方框+向上箭头）',
+                    '向下滑动找到 <b>「添加到主屏幕」</b>',
+                    '点击右上角 <b>「添加」</b>'
+                ],
+                safari: [
+                    '点击Safari底部的 <b>分享按钮</b>（方框+向上箭头）',
+                    '向下滑动找到 <b>「添加到主屏幕」</b>',
+                    '点击右上角 <b>「添加」</b>'
+                ],
+                chrome: [
+                    '点击右上角 <b>「···」</b> 菜单',
+                    '选择 <b>「添加到主屏幕」</b> 或 <b>「安装应用」</b>',
+                    '点击确认'
+                ],
+                edge: [
+                    '点击底部菜单按钮',
+                    '选择 <b>「添加到手机」</b> -> <b>「主屏幕」</b>',
+                    '确认添加'
+                ],
+                firefox: [
+                    '点击右上角菜单按钮',
+                    '选择 <b>「安装」</b> 或 <b>「添加到主屏幕」</b>',
+                    '确认添加'
+                ],
+                generic: [
+                    '点击浏览器的 <b>菜单按钮</b>（通常在底部或右上角）',
+                    '找到 <b>「添加到桌面」</b>、<b>「添加到主屏幕」</b> 或 <b>「创建快捷方式」</b>',
+                    '点击确认即可'
+                ]
+            };
+            return guides[browserId] || guides.generic;
         }
 
         // 安装按钮点击
         function handleInstallClick() {
-            // 播放点击音效
-            if (typeof playTapSound === 'function') playTapSound();
+            try {
+                if (typeof playClick === 'function') playClick();
+            } catch(e) {}
 
-            const browser = detectBrowser();
-            const modal = document.getElementById('install-modal');
+            var browser = detectBrowser();
+            var steps = getGuideSteps(browser.id);
+            var content = document.getElementById('install-modal-content');
 
-            // 隐藏所有引导
-            ['install-native','guide-huawei','guide-quark','guide-wechat',
-             'guide-ios','guide-generic','guide-chrome-android'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
+            var html = '';
 
-            // 根据浏览器显示对应引导
-            if ((browser === 'chrome' || browser === 'edge') && deferredPrompt) {
-                // Chrome/Edge 且有原生安装事件
-                document.getElementById('install-native').classList.remove('hidden');
-                document.getElementById('guide-chrome-android').classList.remove('hidden');
-            } else if (browser === 'huawei') {
-                document.getElementById('guide-huawei').classList.remove('hidden');
-            } else if (browser === 'quark') {
-                document.getElementById('guide-quark').classList.remove('hidden');
-            } else if (browser === 'wechat') {
-                document.getElementById('guide-wechat').classList.remove('hidden');
-            } else if (browser === 'ios') {
-                document.getElementById('guide-ios').classList.remove('hidden');
-            } else if (browser === 'chrome' || browser === 'edge') {
-                // Chrome但没有beforeinstallprompt（可能已安装或不满足条件）
-                document.getElementById('guide-chrome-android').classList.remove('hidden');
-                document.getElementById('guide-generic').classList.remove('hidden');
-            } else {
-                document.getElementById('guide-generic').classList.remove('hidden');
+            // 如果是Chrome/Edge且有原生安装事件，显示一键安装按钮
+            if ((browser.id === 'chrome' || browser.id === 'edge') && deferredPrompt) {
+                html += '<div style="margin-bottom:16px;">' +
+                    '<button onclick="triggerNativeInstall()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">' +
+                    '&#11015; 一键安装到桌面</button>' +
+                    '<p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:8px;">点击后浏览器会弹出安装确认框</p>' +
+                    '</div>';
             }
 
+            // 当前浏览器引导（高亮显示）
+            html += '<div style="background:#f9fafb;border-radius:16px;padding:16px;margin-bottom:12px;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
+            html += '<span style="font-size:20px;">&#128241;</span>';
+            html += '<b style="font-size:15px;color:#1f2937;">' + browser.name + ' 操作步骤</b>';
+            html += '</div>';
+            html += '<ol style="list-style:none;padding:0;margin:0;">';
+            for (var i = 0; i < steps.length; i++) {
+                html += '<li style="display:flex;gap:10px;margin-bottom:10px;font-size:14px;color:#4b5563;line-height:1.5;">';
+                html += '<span style="flex-shrink:0;width:22px;height:22px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;">' + (i+1) + '</span>';
+                html += '<span style="padding-top:1px;">' + steps[i] + '</span>';
+                html += '</li>';
+            }
+            html += '</ol>';
+            html += '</div>';
+
+            // 如果是微信，额外提示
+            if (browser.id === 'wechat') {
+                html += '<div style="background:#fef2f2;border-radius:12px;padding:12px;display:flex;gap:8px;margin-bottom:12px;">';
+                html += '<span style="color:#ef4444;">&#9888;</span>';
+                html += '<p style="font-size:13px;color:#b91c1c;margin:0;">请先在浏览器中打开本页面，再进行添加桌面操作。</p>';
+                html += '</div>';
+            }
+
+            // 提示信息
+            html += '<div style="background:#fffbeb;border-radius:12px;padding:12px;display:flex;gap:8px;margin-bottom:16px;">';
+            html += '<span style="color:#f59e0b;">&#128161;</span>';
+            html += '<p style="font-size:12px;color:#92400e;margin:0;line-height:1.5;">安装后桌面会出现独立图标，打开即全屏体验，无浏览器地址栏，支持离线答题。如果找不到菜单选项，可以截图发给我帮你看。</p>';
+            html += '</div>';
+
+            // 我已添加按钮
+            html += '<button onclick="closeInstallModal()" style="width:100%;padding:12px;background:#1f2937;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;">我知道了</button>';
+
+            content.innerHTML = html;
+
+            var modal = document.getElementById('install-modal');
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
@@ -5658,12 +5673,12 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
         function triggerNativeInstall() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
+                deferredPrompt.userChoice.then(function(choiceResult) {
                     if (choiceResult.outcome === 'accepted') {
                         closeInstallModal();
                     }
                     deferredPrompt = null;
-                });
+                }).catch(function() {});
             }
         }
     </script>
