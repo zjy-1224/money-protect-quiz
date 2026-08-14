@@ -1,7 +1,7 @@
 // Service Worker for 赚钱与护钱 PWA
 // 策略：HTML 网络优先（保证更新及时），静态资源缓存优先（离线可用）
 
-const CACHE_VERSION = 'v2026.08.14b';
+const CACHE_VERSION = 'v2026.08.14c';
 const CACHE_NAME = `money-protect-${CACHE_VERSION}`;
 
 // 需要预缓存的核心资源
@@ -39,32 +39,40 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// 请求拦截
+// 拦截 /_data/ 请求，从 Cache API 返回用户数据（离线/杀后台后仍可恢复）
 self.addEventListener('fetch', (event) => {
     const { request } = event;
-
-    // 只处理 GET 请求
     if (request.method !== 'GET') return;
-
     const url = new URL(request.url);
 
-    // 跳过跨域请求（如 CDN 资源），让浏览器直接处理
-    if (url.origin !== self.location.origin) {
-        // CDN 资源用 stale-while-revalidate
-        if (url.hostname.includes('cdn.') || url.hostname.includes('jsdelivr')) {
+    // 用户数据请求：cache-first（永远从缓存读取）
+    if (url.pathname.includes('/_data/')) {
+        event.respondWith(
+            caches.open('mpq-userdata-v1').then((cache) => {
+                return cache.match(request).then((cached) => {
+                    return cached || new Response(JSON.stringify({}), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                });
+            })
+        );
+        return;
+    }
+
+    const url2 = url;
+    if (url2.origin !== self.location.origin) {
+        if (url2.hostname.includes('cdn.') || url2.hostname.includes('jsdelivr')) {
             event.respondWith(staleWhileRevalidate(request));
         }
         return;
     }
 
-    // HTML 导航请求：网络优先（确保用户获取最新版本）
     if (request.mode === 'navigate' ||
         (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
         event.respondWith(networkFirst(request));
         return;
     }
 
-    // 其他同源静态资源：缓存优先
     event.respondWith(cacheFirst(request));
 });
 
