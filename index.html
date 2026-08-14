@@ -268,6 +268,26 @@
             <p class="text-center text-xs text-gray-400 mt-8">
                 <i class="fa fa-lightbulb-o mr-1"></i>赚钱靠能力，护钱靠法律。两者兼备，行稳致远。
             </p>
+
+            <!-- 数据备份/恢复 -->
+            <div class="mt-6 text-center">
+                <button onclick="toggleBackupPanel()" class="text-xs text-gray-400 underline btn-tap" style="text-underline-offset: 3px;">
+                    <i class="fa fa-database mr-1"></i>数据备份与恢复
+                </button>
+                <div id="backup-panel" class="hidden mt-3 p-4 bg-gray-50 rounded-xl text-left">
+                    <p class="text-xs text-gray-500 mb-3">你的答题记录自动保存在设备本地。建议定期导出备份，更换设备或清除浏览器数据后可恢复。</p>
+                    <div class="flex gap-2">
+                        <button onclick="exportData()" class="flex-1 py-2 px-3 bg-blue-500 text-white text-sm rounded-lg btn-tap">
+                            <i class="fa fa-download mr-1"></i>导出备份
+                        </button>
+                        <button onclick="document.getElementById('import-file').click()" class="flex-1 py-2 px-3 bg-gray-600 text-white text-sm rounded-lg btn-tap">
+                            <i class="fa fa-upload mr-1"></i>导入恢复
+                        </button>
+                        <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                    </div>
+                    <p id="backup-status" class="text-xs text-gray-400 mt-2 text-center"></p>
+                </div>
+            </div>
         </div>
 
         <!-- 首页 -->
@@ -4449,6 +4469,84 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             };
         }
 
+        // ========== 持久化存储层（IndexedDB + localStorage 双写） ==========
+        // IndexedDB 比 localStorage 更持久，国产浏览器关闭进程后不会被清理
+        const PersistentDB = (function() {
+            const DB_NAME = 'MoneyProtectQuizDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'userData';
+            let dbPromise = null;
+
+            function openDB() {
+                if (dbPromise) return dbPromise;
+                dbPromise = new Promise(function(resolve, reject) {
+                    try {
+                        const request = indexedDB.open(DB_NAME, DB_VERSION);
+                        request.onupgradeneeded = function(e) {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                                db.createObjectStore(STORE_NAME);
+                            }
+                        };
+                        request.onsuccess = function(e) { resolve(e.target.result); };
+                        request.onerror = function(e) { reject(e.target.error); };
+                    } catch(err) {
+                        reject(err);
+                    }
+                });
+                return dbPromise;
+            }
+
+            function set(key, value) {
+                return openDB().then(function(db) {
+                    return new Promise(function(resolve, reject) {
+                        try {
+                            const tx = db.transaction(STORE_NAME, 'readwrite');
+                            tx.objectStore(STORE_NAME).put(value, key);
+                            tx.oncomplete = function() { resolve(); };
+                            tx.onerror = function(e) { reject(e.target.error); };
+                        } catch(err) { reject(err); }
+                    });
+                }).catch(function(err) {
+                    console.warn('IndexedDB set failed:', err);
+                });
+            }
+
+            function get(key) {
+                return openDB().then(function(db) {
+                    return new Promise(function(resolve, reject) {
+                        try {
+                            const tx = db.transaction(STORE_NAME, 'readonly');
+                            const request = tx.objectStore(STORE_NAME).get(key);
+                            request.onsuccess = function() { resolve(request.result || null); };
+                            request.onerror = function(e) { reject(e.target.error); };
+                        } catch(err) { reject(err); }
+                    });
+                }).catch(function(err) {
+                    console.warn('IndexedDB get failed:', err);
+                    return null;
+                });
+            }
+
+            function getAll() {
+                return openDB().then(function(db) {
+                    return new Promise(function(resolve, reject) {
+                        try {
+                            const tx = db.transaction(STORE_NAME, 'readonly');
+                            const request = tx.objectStore(STORE_NAME).getAll();
+                            request.onsuccess = function() { resolve(request.result || []); };
+                            request.onerror = function(e) { reject(e.target.error); };
+                        } catch(err) { reject(err); }
+                    });
+                }).catch(function(err) {
+                    console.warn('IndexedDB getAll failed:', err);
+                    return [];
+                });
+            }
+
+            return { set: set, get: get, getAll: getAll };
+        })();
+
         // 动态引用当前模块的数据（所有现有函数通过这三个变量访问数据，无需修改内部逻辑）
         let questions = [];
         let categories = [];
@@ -4659,6 +4757,16 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             checkUpdate();
             setupFilterListeners();
 
+            // 异步从 IndexedDB 恢复数据（浏览器重启后 localStorage 可能被清理）
+            setTimeout(recoverFromIndexedDB, 300);
+
+            // 请求持久化存储权限（防止浏览器在存储空间不足时自动清除数据）
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist().then(function(persistent) {
+                    console.log('Persistent storage:', persistent ? 'granted' : 'denied');
+                }).catch(function(){});
+            }
+
             // 检查URL参数是否指定了模块（PWA快捷方式）
             const params = new URLSearchParams(window.location.search);
             const moduleParam = params.get('module');
@@ -4698,19 +4806,107 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
         }
 
         function loadAllUserData() {
-            // 赚钱模块（兼容旧版 businessQuizData 键）
+            // 第一步：同步从 localStorage 快速加载（UI立即可用）
             loadModuleData('money', 'businessQuizData');
-            // 护钱模块
             loadModuleData('protect', null);
+        }
+
+        // 第二步：异步从 IndexedDB 恢复（浏览器重启后 localStorage 可能被清，IndexedDB 更持久）
+        function recoverFromIndexedDB() {
+            ['money', 'protect'].forEach(function(key) {
+                PersistentDB.get(key).then(function(idbData) {
+                    var localCount = Object.keys(allUserData[key].answered || {}).length;
+
+                    if (idbData && idbData.answered) {
+                        var idbCount = Object.keys(idbData.answered || {}).length;
+
+                        if (idbCount > localCount) {
+                            // IndexedDB 数据更多，用它恢复
+                            console.log('Recovering ' + key + ' from IndexedDB: ' + idbCount + ' records');
+                            allUserData[key] = Object.assign(createEmptyUserData(), idbData);
+                            if (!allUserData[key].answered || typeof allUserData[key].answered !== 'object') {
+                                allUserData[key].answered = {};
+                            }
+                        } else if (localCount > idbCount) {
+                            // localStorage 数据更多，回写到 IndexedDB
+                            console.log('Syncing ' + key + ' to IndexedDB: ' + localCount + ' records');
+                            PersistentDB.set(key, allUserData[key]);
+                        } else if (idbCount === localCount && localCount > 0) {
+                            // 数据一致，确保合并（防止个别题目遗漏）
+                            var merged = mergeUserData(
+                                JSON.parse(JSON.stringify(allUserData[key])),
+                                idbData
+                            );
+                            allUserData[key] = merged;
+                        }
+                    } else if (localCount > 0) {
+                        // IndexedDB 为空但 localStorage 有数据，写入 IndexedDB
+                        console.log('Writing ' + key + ' to IndexedDB: ' + localCount + ' records');
+                        PersistentDB.set(key, allUserData[key]);
+                    }
+
+                    // 同步回 localStorage
+                    try {
+                        localStorage.setItem('quizData_' + key, JSON.stringify(allUserData[key]));
+                        localStorage.setItem('quizData_' + key + '_bak', JSON.stringify(allUserData[key]));
+                    } catch(e) {}
+
+                    // 如果当前正在查看这个模块，刷新UI
+                    if (state.currentModule === key) {
+                        userData = allUserData[key];
+                        if (state.currentPage === 'page-home') {
+                            updateStats();
+                        }
+                    }
+                    // 刷新模块选择页的统计数字
+                    var totalCount = Object.keys(allUserData[key].answered || {}).length;
+                    var elAnswered = document.getElementById('module-' + key + '-answered');
+                    if (elAnswered) elAnswered.textContent = totalCount;
+                }).catch(function(err) {
+                    console.warn('IndexedDB recovery failed for ' + key + ':', err);
+                });
+            });
+        }
+
+        // 合并两份数据（取并集，防止任何一方丢失记录）
+        function mergeUserData(target, source) {
+            if (!source || !source.answered) return target;
+            // 合并答题记录
+            Object.keys(source.answered).forEach(function(qid) {
+                if (!target.answered[qid]) {
+                    target.answered[qid] = source.answered[qid];
+                }
+            });
+            // 合并错题本
+            if (Array.isArray(source.wrong)) {
+                source.wrong.forEach(function(id) {
+                    if (target.wrong.indexOf(id) === -1) target.wrong.push(id);
+                });
+            }
+            // 合并收藏
+            if (Array.isArray(source.favorites)) {
+                source.favorites.forEach(function(id) {
+                    if (target.favorites.indexOf(id) === -1) target.favorites.push(id);
+                });
+            }
+            // 合并统计（取较大值）
+            if (source.stats) {
+                target.stats.totalAnswered = Math.max(target.stats.totalAnswered || 0, source.stats.totalAnswered || 0);
+                target.stats.totalCorrect = Math.max(target.stats.totalCorrect || 0, source.stats.totalCorrect || 0);
+                if (source.stats.streak) target.stats.streak = Math.max(target.stats.streak || 0, source.stats.streak);
+            }
+            return target;
         }
 
         function saveUserData() {
             if (state.currentModule) {
                 try {
-                    const data = JSON.stringify(allUserData[state.currentModule]);
-                    localStorage.setItem(`quizData_${state.currentModule}`, data);
-                    // 备份写入，防止部分浏览器刷新时清空主存储
-                    localStorage.setItem(`quizData_${state.currentModule}_bak`, data);
+                    var dataStr = JSON.stringify(allUserData[state.currentModule]);
+                    // 写 localStorage（同步、快速）
+                    localStorage.setItem('quizData_' + state.currentModule, dataStr);
+                    localStorage.setItem('quizData_' + state.currentModule + '_bak', dataStr);
+                    // 写 IndexedDB（异步、持久，浏览器关闭后不丢）
+                    PersistentDB.set(state.currentModule, JSON.parse(dataStr));
                 } catch(e) {
                     console.error('saveUserData failed:', e);
                 }
@@ -4720,14 +4916,84 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
         // 保存所有模块数据（用于页面退出/隐藏时兜底）
         function saveAllUserData() {
             try {
-                ['money', 'protect'].forEach(key => {
-                    const data = JSON.stringify(allUserData[key]);
-                    localStorage.setItem(`quizData_${key}`, data);
-                    localStorage.setItem(`quizData_${key}_bak`, data);
+                ['money', 'protect'].forEach(function(key) {
+                    var dataStr = JSON.stringify(allUserData[key]);
+                    localStorage.setItem('quizData_' + key, dataStr);
+                    localStorage.setItem('quizData_' + key + '_bak', dataStr);
+                    // 同步写 IndexedDB
+                    PersistentDB.set(key, JSON.parse(dataStr));
                 });
             } catch(e) {
                 console.error('saveAllUserData failed:', e);
             }
+        }
+
+        // ========== 数据导出/导入 ==========
+        function toggleBackupPanel() {
+            var panel = document.getElementById('backup-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function exportData() {
+            try {
+                saveAllUserData();
+                var exportObj = {
+                    version: '1.0',
+                    exportDate: new Date().toISOString(),
+                    money: allUserData.money,
+                    protect: allUserData.protect
+                };
+                var blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                var d = new Date();
+                var dateStr = d.getFullYear() + '' + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+                a.href = url;
+                a.download = '答题记录备份_' + dateStr + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                var status = document.getElementById('backup-status');
+                if (status) status.textContent = '备份已导出，文件已保存到下载目录';
+            } catch(err) {
+                console.error('Export failed:', err);
+                alert('导出失败：' + err.message);
+            }
+        }
+
+        function importData(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var imported = JSON.parse(e.target.result);
+                    var moneyCount = 0, protectCount = 0;
+                    if (imported.money && imported.money.answered) {
+                        allUserData.money = mergeUserData(allUserData.money, imported.money);
+                        moneyCount = Object.keys(allUserData.money.answered).length;
+                    }
+                    if (imported.protect && imported.protect.answered) {
+                        allUserData.protect = mergeUserData(allUserData.protect, imported.protect);
+                        protectCount = Object.keys(allUserData.protect.answered).length;
+                    }
+                    saveAllUserData();
+                    updateModuleStats();
+                    if (state.currentModule) {
+                        userData = allUserData[state.currentModule];
+                        updateStats();
+                    }
+                    var status = document.getElementById('backup-status');
+                    if (status) status.textContent = '恢复成功！赚钱已答' + moneyCount + '题，护钱已答' + protectCount + '题';
+                    alert('导入成功！\n赚钱已答：' + moneyCount + '题\n护钱已答：' + protectCount + '题');
+                } catch(err) {
+                    console.error('Import failed:', err);
+                    alert('导入失败：文件格式不正确');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
         }
 
         function checkUpdate() {
