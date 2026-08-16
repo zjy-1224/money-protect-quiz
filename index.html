@@ -4450,36 +4450,78 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             };
         }
 
-        // ========== 持久化存储引擎（四重保障：localStorage + IndexedDB + Cache API + Cookie） ==========
-        // 国产浏览器杀后台时可能清理 localStorage/IndexedDB，
-        // Cache API 属于 Service Worker 级别，Cookie 属于网络栈级别，双重兜底
+        // ========== 持久化存储引擎（OPFS 主存储 + 多层兜底） ==========
+        // OPFS（Origin Private File System）是浏览器最底层的文件系统存储，
+        // 不会被浏览器自动清理，不受存储驱逐影响，适合永久保存用户数据。
+        // 国产浏览器也会保留 OPFS 数据，因为它是 PWA 规范的核心组成部分。
         const DATA_CACHE = 'mpq-userdata-v1';
         const COOKIE_KEY = 'mpq_data';
         const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1年
 
+        // -- OPFS（主存储，杀后台/长时间不访问都不会被清理） --
+        var _opfsRoot = null;
+        function getOPFSRoot() {
+            if (_opfsRoot) return Promise.resolve(_opfsRoot);
+            if (!navigator.storage || !navigator.storage.getDirectory) {
+                return Promise.reject(new Error('OPFS not supported'));
+            }
+            return navigator.storage.getDirectory().then(function(root) {
+                _opfsRoot = root;
+                return root;
+            });
+        }
+
+        function saveToOPFS(key, dataObj) {
+            return getOPFSRoot().then(function(root) {
+                var fileName = 'quizData_' + key + '.json';
+                return root.getFileHandle(fileName, { create: true }).then(function(fh) {
+                    return fh.createWritable().then(function(w) {
+                        return w.write(JSON.stringify(dataObj)).then(function() {
+                            return w.close();
+                        });
+                    });
+                });
+            }).catch(function(err) {
+                console.warn('OPFS save failed for ' + key + ':', err);
+            });
+        }
+
+        function loadFromOPFS(key) {
+            return getOPFSRoot().then(function(root) {
+                var fileName = 'quizData_' + key + '.json';
+                return root.getFileHandle(fileName, { create: false }).then(function(fh) {
+                    return fh.getFile().then(function(file) {
+                        return file.text().then(function(text) {
+                            return text ? JSON.parse(text) : null;
+                        });
+                    });
+                });
+            }).catch(function() {
+                return null; // 文件不存在等
+            });
+        }
+
         // -- IndexedDB --
-        const PersistentDB = (function() {
-            const DB_NAME = 'MoneyProtectQuizDB';
-            const DB_VERSION = 1;
-            const STORE_NAME = 'userData';
-            let dbPromise = null;
+        var PersistentDB = (function() {
+            var DB_NAME = 'MoneyProtectQuizDB';
+            var DB_VERSION = 1;
+            var STORE_NAME = 'userData';
+            var dbPromise = null;
 
             function openDB() {
                 if (dbPromise) return dbPromise;
                 dbPromise = new Promise(function(resolve, reject) {
                     try {
-                        const request = indexedDB.open(DB_NAME, DB_VERSION);
+                        var request = indexedDB.open(DB_NAME, DB_VERSION);
                         request.onupgradeneeded = function(e) {
-                            const db = e.target.result;
+                            var db = e.target.result;
                             if (!db.objectStoreNames.contains(STORE_NAME)) {
                                 db.createObjectStore(STORE_NAME);
                             }
                         };
                         request.onsuccess = function(e) { resolve(e.target.result); };
                         request.onerror = function(e) { reject(e.target.error); };
-                    } catch(err) {
-                        reject(err);
-                    }
+                    } catch(err) { reject(err); }
                 });
                 return dbPromise;
             }
@@ -4488,69 +4530,54 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
                 return openDB().then(function(db) {
                     return new Promise(function(resolve, reject) {
                         try {
-                            const tx = db.transaction(STORE_NAME, 'readwrite');
+                            var tx = db.transaction(STORE_NAME, 'readwrite');
                             tx.objectStore(STORE_NAME).put(value, key);
                             tx.oncomplete = function() { resolve(); };
                             tx.onerror = function(e) { reject(e.target.error); };
                         } catch(err) { reject(err); }
                     });
-                }).catch(function(err) {
-                    console.warn('IndexedDB set failed:', err);
-                });
+                }).catch(function(err) { console.warn('IndexedDB set failed:', err); });
             }
 
             function get(key) {
                 return openDB().then(function(db) {
                     return new Promise(function(resolve, reject) {
                         try {
-                            const tx = db.transaction(STORE_NAME, 'readonly');
-                            const request = tx.objectStore(STORE_NAME).get(key);
+                            var tx = db.transaction(STORE_NAME, 'readonly');
+                            var request = tx.objectStore(STORE_NAME).get(key);
                             request.onsuccess = function() { resolve(request.result || null); };
                             request.onerror = function(e) { reject(e.target.error); };
                         } catch(err) { reject(err); }
                     });
-                }).catch(function(err) {
-                    console.warn('IndexedDB get failed:', err);
-                    return null;
-                });
+                }).catch(function(err) { console.warn('IndexedDB get failed:', err); return null; });
             }
 
             return { set: set, get: get };
         })();
 
-        // -- Cache API 存储（SW级别，独立于页面存储） --
+        // -- Cache API --
         function getCacheKey(key) {
-            // 使用相对于当前页面的路径，确保在 GitHub Pages 子路径下也一致
             return new URL('_data/' + key, window.location.href).href;
         }
-
         function saveToCache(key, dataObj) {
             try {
                 if (!('caches' in window)) return;
                 var json = JSON.stringify(dataObj);
-                var response = new Response(json, {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                caches.open(DATA_CACHE).then(function(cache) {
-                    cache.put(getCacheKey(key), response);
-                }).catch(function(){});
+                var resp = new Response(json, { headers: { 'Content-Type': 'application/json' } });
+                caches.open(DATA_CACHE).then(function(c) { c.put(getCacheKey(key), resp); }).catch(function(){});
             } catch(e) {}
         }
-
         function loadFromCache(key) {
             if (!('caches' in window)) return Promise.resolve(null);
-            return caches.open(DATA_CACHE).then(function(cache) {
-                return cache.match(getCacheKey(key));
-            }).then(function(response) {
-                if (!response) return null;
-                return response.json();
+            return caches.open(DATA_CACHE).then(function(c) {
+                return c.match(getCacheKey(key));
+            }).then(function(r) {
+                return r ? r.json() : null;
             }).catch(function() { return null; });
         }
 
-        // -- Cookie 存储（网络栈级别，最持久，但有4KB限制，需紧凑编码） --
+        // -- Cookie --
         function compactEncode(dataObj) {
-            // 紧凑编码：answered IDs + wrong + favorites + stats
-            // answered: "1c,2w,3c" (c=correct, w=wrong)
             var parts = [];
             var answered = dataObj.answered || {};
             var ansParts = [];
@@ -4564,7 +4591,6 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             parts.push('s:' + (s.totalAnswered||0) + '|' + (s.totalCorrect||0) + '|' + (s.streak||0) + '|' + (s.stars||0));
             return parts.join(';');
         }
-
         function compactDecode(str) {
             var data = createEmptyUserData();
             if (!str) return data;
@@ -4576,10 +4602,8 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
                     var val = part.substring(idx + 1);
                     if (type === 'a' && val) {
                         val.split(',').forEach(function(item) {
-                            var match = item.match(/^(\d+)([cw])$/);
-                            if (match) {
-                                data.answered[match[1]] = { correct: match[2] === 'c', time: Date.now() };
-                            }
+                            var m = item.match(/^(\d+)([cw])$/);
+                            if (m) data.answered[m[1]] = { correct: m[2] === 'c', time: Date.now() };
                         });
                     } else if (type === 'w' && val) {
                         data.wrong = val.split(',').filter(Boolean).map(Number);
@@ -4599,16 +4623,13 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             } catch(e) {}
             return data;
         }
-
         function saveToCookie(key, dataObj) {
             try {
                 var compact = compactEncode(dataObj);
-                // 两个模块分两个cookie，避免超过4KB
                 document.cookie = COOKIE_KEY + '_' + key + '=' + encodeURIComponent(compact) +
                     ';max-age=' + COOKIE_MAX_AGE + ';path=/;SameSite=Lax';
             } catch(e) {}
         }
-
         function loadFromCookie(key) {
             try {
                 var name = COOKIE_KEY + '_' + key + '=';
@@ -4833,15 +4854,16 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             checkUpdate();
             setupFilterListeners();
 
-            // 异步从 IndexedDB + Cache API + Cookie 恢复数据（四重存储互相补全）
+            // 异步从 OPFS + IndexedDB + Cache API + Cookie 恢复数据（五重存储互相补全）
             setTimeout(recoverAllData, 200);
 
-            // 请求持久化存储权限（防止浏览器在存储空间不足时自动清除数据）
-            if (navigator.storage && navigator.storage.persist) {
-                navigator.storage.persist().then(function(persistent) {
-                    console.log('Persistent storage:', persistent ? 'granted' : 'denied');
-                }).catch(function(){});
-            }
+            // 请求持久化存储权限（OPFS 需要此权限才能保证永久存储）
+            requestPersistentStorage();
+
+            // 定时持久化（每 5 分钟自动保存一次，防止意外丢失）
+            setInterval(function() {
+                saveAllUserData();
+            }, 5 * 60 * 1000);
 
             // 检查URL参数是否指定了模块（PWA快捷方式）
             const params = new URLSearchParams(window.location.search);
@@ -4890,22 +4912,27 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             loadModuleData('protect', null);
         }
 
-        // 异步从 IndexedDB + Cache API 恢复（四重存储互相补全）
+        // 异步从 OPFS + IndexedDB + Cache API 恢复（OPFS 为主，其余兜底补全）
         function recoverAllData() {
             ['money', 'protect'].forEach(function(key) {
                 var localData = allUserData[key];
                 var localCount = Object.keys(localData.answered || {}).length;
 
-                // 并行从 IndexedDB 和 Cache API 读取
+                // 并行从 OPFS、IndexedDB、Cache API 读取
                 Promise.all([
+                    loadFromOPFS(key),
                     PersistentDB.get(key),
                     loadFromCache(key)
                 ]).then(function(results) {
-                    var idbData = results[0];
-                    var cacheData = results[1];
+                    var opfsData = results[0];
+                    var idbData = results[1];
+                    var cacheData = results[2];
 
-                    // 收集所有数据源，找出答题记录最多的那份
+                    // 收集所有数据源，OPFS 优先级最高
                     var candidates = [{ data: localData, count: localCount, source: 'local' }];
+                    if (opfsData && opfsData.answered) {
+                        candidates.push({ data: opfsData, count: Object.keys(opfsData.answered).length, source: 'opfs' });
+                    }
                     if (idbData && idbData.answered) {
                         candidates.push({ data: idbData, count: Object.keys(idbData.answered).length, source: 'idb' });
                     }
@@ -4925,7 +4952,7 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
                     allUserData[key] = merged;
 
                     var totalCount = Object.keys(merged.answered || {}).length;
-                    console.log('[' + key + '] Recovered ' + totalCount + ' records (best source: ' + best.source + ')');
+                    console.log('[' + key + '] Recovered ' + totalCount + ' records (best: ' + best.source + ')');
 
                     // 回写到所有存储层，确保同步
                     writeAllLayers(key, merged);
@@ -4943,19 +4970,21 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             });
         }
 
-        // 向所有存储层写入数据
+        // 向所有存储层写入数据（OPFS 为主，其余为兜底）
         function writeAllLayers(key, dataObj) {
             var dataStr = JSON.stringify(dataObj);
-            // 1. localStorage（同步）
+            // 1. OPFS（主存储，永久持久，不会被浏览器清理）
+            saveToOPFS(key, dataObj);
+            // 2. localStorage（同步，UI 快速加载用）
             try {
                 localStorage.setItem('quizData_' + key, dataStr);
                 localStorage.setItem('quizData_' + key + '_bak', dataStr);
             } catch(e) {}
-            // 2. Cookie（同步，网络栈级别）
+            // 3. Cookie（同步，网络栈级别）
             saveToCookie(key, dataObj);
-            // 3. IndexedDB（异步）
+            // 4. IndexedDB（异步）
             PersistentDB.set(key, JSON.parse(dataStr));
-            // 4. Cache API（异步，SW级别）
+            // 5. Cache API（异步，SW 级别）
             saveToCache(key, JSON.parse(dataStr));
         }
 
@@ -5012,6 +5041,23 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             } catch(e) {
                 console.error('saveAllUserData failed:', e);
             }
+        }
+
+        // 请求持久化存储，被拒后重试（OPFS 本身不需要 persist 也能工作，但加上更安全）
+        function requestPersistentStorage() {
+            if (!navigator.storage || !navigator.storage.persist) return;
+            navigator.storage.persist().then(function(persistent) {
+                if (persistent) {
+                    console.log('Persistent storage granted');
+                } else {
+                    // 被拒后 30 秒再试一次（用户交互可能触发权限变更）
+                    setTimeout(function() {
+                        navigator.storage.persist().then(function(p) {
+                            console.log('Retry persistent storage:', p ? 'granted' : 'still denied');
+                        }).catch(function(){});
+                    }, 30000);
+                }
+            }).catch(function(){});
         }
 
         function checkUpdate() {
