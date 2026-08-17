@@ -4472,12 +4472,26 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
         }
 
         function saveToOPFS(key, dataObj) {
+            var jsonStr = JSON.stringify(dataObj);
             return getOPFSRoot().then(function(root) {
                 var fileName = 'quizData_' + key + '.json';
                 return root.getFileHandle(fileName, { create: true }).then(function(fh) {
                     return fh.createWritable().then(function(w) {
-                        return w.write(JSON.stringify(dataObj)).then(function() {
+                        return w.write(jsonStr).then(function() {
                             return w.close();
+                        });
+                    });
+                }).then(function() {
+                    // 写入后立即读回验证
+                    return root.getFileHandle(fileName, { create: false }).then(function(fh) {
+                        return fh.getFile().then(function(file) {
+                            return file.text().then(function(text) {
+                                if (text !== jsonStr) {
+                                    console.warn('OPFS write verification FAILED for ' + key + ', retrying...');
+                                    // 重试一次
+                                    return saveToOPFS(key, dataObj);
+                                }
+                            });
                         });
                     });
                 });
@@ -4815,6 +4829,9 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
         // 全局点击反馈委托
         function setupGlobalFeedback() {
             document.addEventListener('click', function(e) {
+                // 每次用户点击都尝试获取持久化存储权限（必须由用户手势触发才有效）
+                ensurePersistence();
+
                 const target = e.target.closest('button, .module-card, .option-btn, [onclick], .nav-item, .lib-cat-btn, .filter-btn');
                 if (!target) return;
                 if (target.disabled) return;
@@ -4838,9 +4855,10 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
                 }
             }, true);
 
-            // 首次触摸初始化音频上下文（移动浏览器限制）
+            // 首次触摸：初始化音频上下文 + 请求持久化存储（用户手势）
             document.addEventListener('touchstart', function() {
                 SoundEngine.initContext();
+                ensurePersistence();
             }, { once: true, passive: true });
         }
 
@@ -4856,9 +4874,6 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
 
             // 异步从 OPFS + IndexedDB + Cache API + Cookie 恢复数据（五重存储互相补全）
             setTimeout(recoverAllData, 200);
-
-            // 请求持久化存储权限（OPFS 需要此权限才能保证永久存储）
-            requestPersistentStorage();
 
             // 定时持久化（每 5 分钟自动保存一次，防止意外丢失）
             setInterval(function() {
@@ -5043,21 +5058,23 @@ explanation: '《刑法》第二百七十五条规定，故意毁坏公私财物
             }
         }
 
-        // 请求持久化存储，被拒后重试（OPFS 本身不需要 persist 也能工作，但加上更安全）
-        function requestPersistentStorage() {
+        // 确保持久化存储（必须在用户手势中调用才有效，不要在页面加载时自动调用）
+        var _persistenceChecked = false;
+        function ensurePersistence() {
             if (!navigator.storage || !navigator.storage.persist) return;
-            navigator.storage.persist().then(function(persistent) {
-                if (persistent) {
-                    console.log('Persistent storage granted');
+            // 每 30 秒最多请求一次，避免频繁调用
+            if (_persistenceChecked) return;
+            _persistenceChecked = true;
+            navigator.storage.persist().then(function(granted) {
+                if (granted) {
+                    console.log('Persistent storage GRANTED - data will survive browser restarts');
                 } else {
-                    // 被拒后 30 秒再试一次（用户交互可能触发权限变更）
-                    setTimeout(function() {
-                        navigator.storage.persist().then(function(p) {
-                            console.log('Retry persistent storage:', p ? 'granted' : 'still denied');
-                        }).catch(function(){});
-                    }, 30000);
+                    console.warn('Persistent storage denied - retrying on next click');
+                    _persistenceChecked = false;
                 }
-            }).catch(function(){});
+            }).catch(function() {
+                _persistenceChecked = false;
+            });
         }
 
         function checkUpdate() {

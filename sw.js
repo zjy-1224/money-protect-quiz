@@ -1,7 +1,7 @@
 // Service Worker for 赚钱与护钱 PWA
 // 策略：HTML 网络优先（保证更新及时），静态资源缓存优先（离线可用）
 
-const CACHE_VERSION = 'v2026.08.16';
+const CACHE_VERSION = 'v2026.08.17';
 const CACHE_NAME = `money-protect-${CACHE_VERSION}`;
 
 // 需要预缓存的核心资源
